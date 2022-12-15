@@ -22,9 +22,12 @@ COPY config/cron.conf /etc/crontabs/nobody
 
 COPY config/time /etc/localtime
 
+COPY config/cron.sh /var/cron.sh
+
 # 设置权限及安装依赖
 RUN chown -R nobody.nobody /home/www/ && \
   chmod +x /var/docker-entrypoint.sh && \
+  chmod +x /var/cron.sh && \
   chown -R nobody.nobody /run && \
   chown -R nobody.nobody /etc/crontabs/nobody && \
   echo "Shanghai/Asia" > /etc/timezone && \
