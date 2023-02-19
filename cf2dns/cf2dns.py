@@ -3,9 +3,8 @@
 # Mail: tongdongdong@outlook.com
 import random
 import time
-import json
-import urllib3
-from dns.qCloud import QcloudApi
+import requests
+from dns.qCloud import QcloudApiv3 # QcloudApiv3 DNSPod 的 API 更新了 By github@z0z0r4
 from dns.aliyun import AliApi
 from dns.huawei import HuaWeiApi
 from log import Logger
@@ -18,7 +17,7 @@ KEY = "o1zrmHAF"
 #修改需要更改的dnspod域名和子域名
 DOMAINS = {
     "hostxxnit.com": {"@": ["CM","CU","CT"], "shop": ["CM", "CU", "CT"], "stock": ["CM","CU","CT"]},
-    "xxxx.me": {"@": ["CM","CU","CT"], "vv": ["CM","CU","CT"]}
+    "484848.xyz": {"@": ["CM","CU","CT"], "shop": ["CM","CU","CT"]}
 }
 
 #解析生效条数 免费的DNSPod相同线路最多支持2条解析
@@ -43,22 +42,23 @@ TYPE = 'v4'
 #腾讯云后台获取 https://console.cloud.tencent.com/cam/capi
 #阿里云后台获取 https://help.aliyun.com/document_detail/53045.html?spm=a2c4g.11186623.2.11.2c6a2fbdh13O53  注意需要添加DNS控制权限 AliyunDNSFullAccess
 #华为云后台获取 https://support.huaweicloud.com/devg-apisign/api-sign-provide-aksk.html
-SECRETID = 'WTTCWxxxxxxxxx84O0V'
+SECRETID = 'WTTCWxxxxxxxxxxxxxxxxxxxxx84O0V'
 SECRETKEY = 'GXkG6D4X1Nxxxxxxxxxxxxxxxxxxxxx4lRg6lT'
 
 log_cf2dns = Logger('cf2dns.log', level='debug') 
-urllib3.disable_warnings()
 
 def get_optimization_ip():
     try:
-        http = urllib3.PoolManager()
         headers = headers = {'Content-Type': 'application/json'}
         data = {"key": KEY, "type": TYPE}
-        data = json.dumps(data).encode()
-        response = http.request('POST','https://api.hostmonit.com/get_optimization_ip',body=data, headers=headers)
-        return json.loads(response.data.decode('utf-8'))
+        response = requests.post('https://api.hostmonit.com/get_optimization_ip', json=data, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            log_cf2dns.logger.error("CHANGE OPTIMIZATION IP ERROR: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----MESSAGE: REQUEST STATUS CODE IS NOT 200")
+            return None
     except Exception as e:
-        print(e)
+        log_cf2dns.logger.error("CHANGE OPTIMIZATION IP ERROR: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----MESSAGE: " + str(e))
         return None
 
 def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
@@ -67,20 +67,10 @@ def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
         recordType = "AAAA"
     else:
         recordType = "A"
-    
-    if line == "CM":
-        line = "移动"
-    elif line == "CU":
-        line = "联通"
-    elif line == "CT":
-        line = "电信"
-    elif line == "AB":
-        line = "境外"
-    elif line == "DEF":
-        line = "默认"
-    else:
-        log_cf2dns.logger.error("CHANGE DNS ERROR: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----MESSAGE: LINE ERROR")
-        return
+
+    lines = {"CM": "移动", "CU": "联通", "CT": "电信", "AB": "境外", "DEF": "默认"}
+    line = lines[line]
+
     try:
         create_num = AFFECT_NUM - len(s_info)
         if create_num == 0:
@@ -196,7 +186,7 @@ def main(cloud):
 
 if __name__ == '__main__':
     if DNS_SERVER == 1:
-        cloud = QcloudApi(SECRETID, SECRETKEY)
+        cloud = QcloudApiv3(SECRETID, SECRETKEY)
     elif DNS_SERVER == 2:
         cloud = AliApi(SECRETID, SECRETKEY, REGION_ALI)
     elif DNS_SERVER == 3:

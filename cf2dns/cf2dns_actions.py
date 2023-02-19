@@ -1,15 +1,14 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 # Mail: tongdongdong@outlook.com
 import random
 import time
 import json
-import urllib3
+import requests
 import os
 import traceback
-from dns.qCloud import QcloudApi
+from dns.qCloud import QcloudApiv3 # QcloudApiv3 DNSPod 的 API 更新了 github@z0z0r4
 from dns.aliyun import AliApi
 from dns.huawei import HuaWeiApi
+import sys
 
 #可以从https://shop.hostmonit.com获取
 KEY = os.environ["KEY"]  #"o1zrmHAF"
@@ -30,42 +29,32 @@ REGION_ALI = 'cn-hongkong'
 #解析生效时间，默认为600秒 如果不是DNS付费版用户 不要修改!!!
 TTL = 600
 #v4为筛选出IPv4的IP  v6为筛选出IPv6的IP
-TYPE = 'v4'
+if len(sys.argv) >= 2:
+    RECORD_TYPE = sys.argv[1]
+else:
+    RECORD_TYPE = "A"
 
-urllib3.disable_warnings()
 
 def get_optimization_ip():
     try:
-        http = urllib3.PoolManager()
         headers = headers = {'Content-Type': 'application/json'}
-        data = {"key": KEY, "type": TYPE}
-        data = json.dumps(data).encode()
-        response = http.request('POST','https://api.hostmonit.com/get_optimization_ip',body=data, headers=headers)
-        return json.loads(response.data.decode('utf-8'))
+        data = {"key": KEY, "type": "v4" if RECORD_TYPE == "A" else "v6"}
+        response = requests.post('https://api.hostmonit.com/get_optimization_ip', json=data, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print("CHANGE OPTIMIZATION IP ERROR: REQUEST STATUS CODE IS NOT 200")
+            return None
     except Exception as e:
-        print(traceback.print_exc())
+        print("CHANGE OPTIMIZATION IP ERROR: " + str(e))
         return None
 
 def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
-    global AFFECT_NUM, TYPE
-    if TYPE == 'v6':
-        recordType = "AAAA"
-    else:
-        recordType = "A"
-    
-    if line == "CM":
-        line = "移动"
-    elif line == "CU":
-        line = "联通"
-    elif line == "CT":
-        line = "电信"
-    elif line == "AB":
-        line = "境外"
-    elif line == "DEF":
-        line = "默认"
-    else:
-        print("CHANGE DNS ERROR: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----MESSAGE: LINE ERROR")
-        return
+    global AFFECT_NUM, RECORD_TYPE
+
+    lines = {"CM": "移动", "CU": "联通", "CT": "电信", "AB": "境外", "DEF": "默认"}
+    line = lines[line]
+
     try:
         create_num = AFFECT_NUM - len(s_info)
         if create_num == 0:
@@ -75,7 +64,7 @@ def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
                 cf_ip = c_info.pop(random.randint(0,len(c_info)-1))["ip"]
                 if cf_ip in str(s_info):
                     continue
-                ret = cloud.change_record(domain, info["recordId"], sub_domain, cf_ip, recordType, line, TTL)
+                ret = cloud.change_record(domain, info["recordId"], sub_domain, cf_ip, RECORD_TYPE, line, TTL)
                 if(DNS_SERVER != 1 or ret["code"] == 0):
                     print("CHANGE DNS SUCCESS: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----DOMAIN: " + domain + "----SUBDOMAIN: " + sub_domain + "----RECORDLINE: "+line+"----RECORDID: " + str(info["recordId"]) + "----VALUE: " + cf_ip )
                 else:
@@ -87,7 +76,7 @@ def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
                 cf_ip = c_info.pop(random.randint(0,len(c_info)-1))["ip"]
                 if cf_ip in str(s_info):
                     continue
-                ret = cloud.create_record(domain, sub_domain, cf_ip, recordType, line, TTL)
+                ret = cloud.create_record(domain, sub_domain, cf_ip, RECORD_TYPE, line, TTL)
                 if(DNS_SERVER != 1 or ret["code"] == 0):
                     print("CREATE DNS SUCCESS: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----DOMAIN: " + domain + "----SUBDOMAIN: " + sub_domain + "----RECORDLINE: "+line+"----VALUE: " + cf_ip )
                 else:
@@ -100,7 +89,7 @@ def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
                 if cf_ip in str(s_info):
                     create_num += 1
                     continue
-                ret = cloud.change_record(domain, info["recordId"], sub_domain, cf_ip, recordType, line, TTL)
+                ret = cloud.change_record(domain, info["recordId"], sub_domain, cf_ip, RECORD_TYPE, line, TTL)
                 if(DNS_SERVER != 1 or ret["code"] == 0):
                     print("CHANGE DNS SUCCESS: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----DOMAIN: " + domain + "----SUBDOMAIN: " + sub_domain + "----RECORDLINE: "+line+"----RECORDID: " + str(info["recordId"]) + "----VALUE: " + cf_ip )
                 else:
@@ -110,11 +99,7 @@ def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
             print("CHANGE DNS ERROR: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----MESSAGE: " + str(traceback.print_exc()))
 
 def main(cloud):
-    global AFFECT_NUM, TYPE
-    if TYPE == 'v6':
-        recordType = "AAAA"
-    else:
-        recordType = "A"
+    global AFFECT_NUM, RECORD_TYPE
     if len(DOMAINS) > 0:
         try:
             cfips = get_optimization_ip()
@@ -141,7 +126,7 @@ def main(cloud):
                                         print("DELETE DNS SUCCESS: ----Time: "  + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----DOMAIN: " + domain + "----SUBDOMAIN: " + sub_domain + "----RECORDLINE: "+record["line"] )
                                     else:
                                         print("DELETE DNS ERROR: ----Time: "  + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----DOMAIN: " + domain + "----SUBDOMAIN: " + sub_domain + "----RECORDLINE: "+record["line"] + "----MESSAGE: " + retMsg["message"] )
-                    ret = cloud.get_record(domain, 100, sub_domain, recordType)
+                    ret = cloud.get_record(domain, 100, sub_domain, RECORD_TYPE)
                     if DNS_SERVER != 1 or ret["code"] == 0 :
                         if DNS_SERVER == 1 and "Free" in ret["data"]["domain"]["grade"] and AFFECT_NUM > 2:
                             AFFECT_NUM = 2
@@ -192,7 +177,7 @@ def main(cloud):
 
 if __name__ == '__main__':
     if DNS_SERVER == 1:
-        cloud = QcloudApi(SECRETID, SECRETKEY)
+        cloud = QcloudApiv3(SECRETID, SECRETKEY)
     elif DNS_SERVER == 2:
         cloud = AliApi(SECRETID, SECRETKEY, REGION_ALI)
     elif DNS_SERVER == 3:
