@@ -14,7 +14,8 @@ RUN apk --no-cache add \
 # 将代码复制到容器
 COPY config/docker-entrypoint.sh /var/docker-entrypoint.sh
 
-COPY cf2dns /home/www/cf2dns
+# COPY cf2dns /home/www/cf2dns
+RUN git clone https://github.com/ddgth/cf2dns.git /home/www/cf2dns
 
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

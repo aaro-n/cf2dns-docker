@@ -4,26 +4,72 @@ on:
   push:
     branches:
       - 'main'
+    schedule:
+      - cron: "13 3 22 * *"
 
 jobs:
   docker:
     runs-on: ubuntu-latest
+
     steps:
-      -
-        name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      -
-        name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      -
-        name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          push: true
-          tags: aaronlee/cf2dns:latest
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set build timestamp
+        id: set-timestamp
+        run: echo "::set-output name=timestamp::$(date +'%Y%m%d%H%M%S')"
+
+      - name: Get latest commit SHA
+        id: get_commit_sha
+        run: |
+          commit_sha=$(curl -s "https://api.github.com/repos/ddgth/cf2dns/commits/master" | jq -r '.sha')
+          echo "::set-output name=commit_sha::$commit_sha"
+
+      - name: Check stored version
+        id: check_version
+        run: |
+          stored_version=$(cat version)
+          echo "::set-output name=stored_version::$stored_version"
+
+      - name: Compare commit SHAs
+        id: compare_shas
+        run: |
+          if [[ "${{ steps.get_commit_sha.outputs.commit_sha }}" == "${{ steps.check_version.outputs.stored_version }}" ]]; then
+            echo "Commit SHAs are the same. Skipping image build."
+            echo "::set-output name=build_image::false"
+          else
+            echo "Commit SHAs are different. Building image."
+            echo "::set-output name=build_image::true"
+          fi
+
+      - name: Extract version prefix
+        id: extract_version_prefix
+        run: |
+          commit_sha=${{ steps.get_commit_sha.outputs.commit_sha }}
+          version_prefix=${commit_sha:0:7}
+          echo "::set-output name=version_prefix::$version_prefix"
+
+      - name: Build and push Docker image
+        if: ${{ steps.compare_shas.outputs.build_image == 'true' }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          echo "${{ steps.get_commit_sha.outputs.commit_sha }}" > version
+          docker build -t aaronlee/cf2dns:latest .
+          docker build -t aaronlee/cf2dns:${{ steps.set-timestamp.outputs.timestamp }} .
+          docker build -t aaronlee/cf2dns:${{ steps.extract_version_prefix.outputs.version_prefix }}  .
+          echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+          docker push aaronlee/cf2dns:latest
+          docker push aaronlee/cf2dns:${{ steps.set-timestamp.outputs.timestamp }}
+          docker push aaronlee/cf2dns:${{ steps.extract_version_prefix.outputs.version_prefix }}
+
+      - name: Update version file
+        if: ${{ steps.compare_shas.outputs.build_image == 'true' }}
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add version
+          git commit -m "Update version file"
+          git push
+
