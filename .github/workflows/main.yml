@@ -5,51 +5,51 @@ on:
     branches:
       - 'main'
   schedule:
-      - cron: "13 3 22 * *"
+    - cron: "13 3 22 * *"
 
 jobs:
   docker:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 检出仓库
         uses: actions/checkout@v2
 
-      - name: Set build timestamp
+      - name: 设置构建时间戳
         id: set-timestamp
         run: echo "::set-output name=timestamp::$(date +'%Y%m%d%H%M%S')"
 
-      - name: Get latest commit SHA
+      - name: 获取最新提交的 SHA
         id: get_commit_sha
         run: |
           commit_sha=$(curl -s "https://api.github.com/repos/ddgth/cf2dns/commits/master" | jq -r '.sha')
           echo "::set-output name=commit_sha::$commit_sha"
 
-      - name: Check stored version
+      - name: 检查存储的版本
         id: check_version
         run: |
           stored_version=$(cat version)
           echo "::set-output name=stored_version::$stored_version"
 
-      - name: Compare commit SHAs
+      - name: 比较提交的 SHA
         id: compare_shas
         run: |
           if [[ "${{ steps.get_commit_sha.outputs.commit_sha }}" == "${{ steps.check_version.outputs.stored_version }}" ]]; then
-            echo "Commit SHAs are the same. Skipping image build."
+            echo "提交的 SHA 相同，跳过镜像构建。"
             echo "::set-output name=build_image::false"
           else
-            echo "Commit SHAs are different. Building image."
+            echo "提交的 SHA 不同，开始构建镜像。"
             echo "::set-output name=build_image::true"
           fi
 
-      - name: Extract version prefix
+      - name: 提取版本前缀
         id: extract_version_prefix
         run: |
           commit_sha=${{ steps.get_commit_sha.outputs.commit_sha }}
           version_prefix=${commit_sha:0:7}
           echo "::set-output name=version_prefix::$version_prefix"
 
-      - name: Build and push Docker image
+      - name: 构建并推送 Docker 镜像
         if: ${{ steps.compare_shas.outputs.build_image == 'true' }}
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -64,12 +64,22 @@ jobs:
           docker push aaronlee/cf2dns:${{ steps.set-timestamp.outputs.timestamp }}
           docker push aaronlee/cf2dns:${{ steps.extract_version_prefix.outputs.version_prefix }}
 
-      - name: Update version file
+      - name: 更新版本文件
         if: ${{ steps.compare_shas.outputs.build_image == 'true' }}
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add version
-          git commit -m "Update version file"
+          git commit -m "更新版本文件"
           git push
 
+      - name: 写入时间到文件
+        run: echo $(date +"%Y-%m-%d %H:%M:%S") > time
+
+      - name: 提交和推送时间更改
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add time
+          git commit -m "更新时间文件"
+          git push origin main
