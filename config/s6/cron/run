@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# 复制 cronjob 文件
+cp -f /home/www/cronjob /etc/cron.d/cronjob
+
+# 设置权限
+chmod 0644 /etc/cron.d/cronjob
+
+# 加载 cron 任务
+/usr/bin/crontab /etc/cron.d/cronjob
+
+# 创建日志文件
+touch /tmp/cf2dns.log
+
+# 启动 cron 服务
+exec /usr/sbin/cron -f -L 15

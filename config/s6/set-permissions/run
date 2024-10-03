@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# 启动赋予权限的脚本
+exec /etc/s6/services/set-permissions/set_permissions.sh
