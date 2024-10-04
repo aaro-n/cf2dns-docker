@@ -1,0 +1,2 @@
+52 6-23 * * * /home/www/venv/bin/python /home/www/cf2dns/cf2dns-v4.py 2>&1 | /usr/bin/tee -a /tmp/cf2dns.log
+23 7-23 * * * /home/www/venv/bin/python /home/www/cf2dns/cf2dns-v6.py 2>&1 | /usr/bin/tee -a /tmp/cf2dns.log

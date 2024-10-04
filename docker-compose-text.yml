@@ -1,9 +1,0 @@
-version: '3'
-services:
-  cf2dns:
-    restart: always
-    image: aaronlee/cf2dns:latest
-    container_name: cf2dns
-    volumes:
-      - ./config/cron.sh:/var/cron.sh
-      - ./config/cf2dns.py:/home/www/cf2dns/cf2dns.py
