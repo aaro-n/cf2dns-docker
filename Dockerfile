@@ -35,7 +35,7 @@ COPY config/cronjob /etc/cron.d/cronjob
 # 创建虚拟环境并安装依赖
 RUN python3 -m venv /home/www/venv && \
     /home/www/venv/bin/pip install --upgrade pip && \
-    /home/www/venv/bin/pip install --no-cache-dir -r /home/www/cf2dns/requirements.txt && \
+    /home/www/venv/bin/pip install --no-cache-dir --upgrade -r /home/www/cf2dns/requirements.txt && \
     # 设置权限
     chown -R www:www /home/www/ && \
     chmod -R +x /etc/s6/services/* && \
