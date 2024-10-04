@@ -11,11 +11,17 @@
 ```
 ## 定时说明
 以`52 6-23 * * * /home/www/venv/bin/python /home/www/cf2dns/cf2dns-v4.py 2>&1 | /usr/bin/tee -a /tmp/cf2dns.log`为例
+
 `52 6-23 * * *`定时任务运行时间，镜像使用的时间时北京时间。
+
 `/home/www/venv/bin/python` 虚拟python环境安装路径。
+
 `/home/www/cf2dns/cf2dns-v4.py` cf2dns脚本文件绝对路径。
+
 `2>&1 | /usr/bin/tee -a /tmp/cf2dns.log` 将cf2dns运行日志输出到/tmp/cf2dns.log，注意必须输出到/tmp/cf2dns.log，否则控制台无法滚动显示cf2dns运行记录，必须通过日志查看。
+
 要根据自身需求修改
+
 ## 注意事项
 * 要按照说明赋予创建的文件所需的权限，可以通过`docker exec -it cf2dns /bin/sh`进入容器，查看查看运行日志。
 * 容器里的时间是北京时间
